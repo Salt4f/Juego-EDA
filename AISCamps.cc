@@ -34,7 +34,17 @@ struct PLAYER_NAME : public Player {
         int left;   //ID del enano de la izquieda
         int right;  //ID del enano de la derecha
     };
-    
+
+    /*vector<vector<int> > distancias(const vector<pair<int,Pos> >& units) {
+        vector<vector<int> > vec(units.size(), vector<int>(units.size(),0));
+        for (int i = 0; i < units.size(); ++i) {
+            for (int j = 0; j < i; ++j) {
+                vec[i][j] = abs(units[i].second.i - units[j].second.i)
+                +  abs(units[i].second.j - units[j].second.j);
+            }
+        }
+        return vec;
+    }*/
 
     //------------ Variables ------------//
 
@@ -47,20 +57,40 @@ struct PLAYER_NAME : public Player {
     int num_wizards;            //Cantidad de magos
     bool dead;                  //Cierto si hemos perdido unidades
     bool newones;               //Cierto si hemos conseguido nuevas unidades
+    vector<pair<int,Pos> > my_dwarves_pos;
 
     //------------ Funciones ------------//
 
     void init() {
+
+        my_id = me();
+        boss_id = balrog_id();
         num_dwarves = 20;
         num_wizards = 5;
 
         update();
+
+        /*for (int i : my_dwarves) {
+            Pos pos = unit(i).pos;
+            my_dwarves_pos.push_back(make_pair(i, pos));
+        }
+
+        ofstream file;
+        file.open("matriz.txt");
+
+        auto dist = distancias(my_dwarves_pos);
+        for (int i = 0; i < dist.size(); ++i) {
+            for (int j = 0; j < dist.size(); ++j) {
+                file << dist[i][j] << "\t";
+            }
+            file << endl;
+        }
+
+        file.close();*/
+
     }
 
     void update() {
-
-        my_id = me();
-        boss_id = balrog_id();
 
         //----- Actualizar mis vectores -----//
 
@@ -88,9 +118,12 @@ struct PLAYER_NAME : public Player {
      * Play method, invoked once per each round.
      */
     virtual void play () {
-        if (nb_rounds() == 1) init();
+        if (round() == 1) init();
         else {
             update();
+            for (int i : my_dwarves) {
+                command(i, Top);
+            }
         }
     }
 
