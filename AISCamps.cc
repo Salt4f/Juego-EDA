@@ -27,6 +27,13 @@ struct PLAYER_NAME : public Player {
         int top;    //ID del enano de arriba
         int right;  //ID del enano de la derecha
     };
+
+    struct GrupoAsalto
+    {
+        int middle; //ID del enano del medio
+        int left;   //ID del enano de la izquieda
+        int right;  //ID del enano de la derecha
+    };
     
 
     //------------ Variables ------------//
