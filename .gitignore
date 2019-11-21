@@ -4,3 +4,4 @@
 *.pdf
 *.res
 init.sh
+.vscode/
