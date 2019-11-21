@@ -125,7 +125,7 @@ struct PLAYER_NAME : public Player {
         boss = unit(boss_id);
     }
 
-    bool bfs (int id, int& dist) {
+    /*bool bfs (int id, int& dist) {
         Pos origen = unit(id).pos;
         dist = -1;
 
@@ -171,7 +171,7 @@ struct PLAYER_NAME : public Player {
 
         return false;
 
-    }
+    }*/
 
     /**
      * Play method, invoked once per each round.
@@ -181,7 +181,10 @@ struct PLAYER_NAME : public Player {
         else {
             update();
             for (int i : my_dwarves) {
-                command(i, Top);
+                if (pos_ok(unit(i).pos + Top) and (cell(unit(i).pos + Top).type == Cave or cell(unit(i).pos + Top).type == Rock))
+                    command(i, Top);
+                else
+                    command(i, Dir(random(0, LB)));
             }
         }
     }
