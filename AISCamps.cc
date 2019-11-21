@@ -35,6 +35,17 @@ struct PLAYER_NAME : public Player {
         int right;  //ID del enano de la derecha
     };
 
+    //Vector usado en el BFS
+    struct Coord
+    {
+        int x;  //Coordenada x
+        int y;  //Coordenada y
+        int d;  //Distancia (respecto al origen del BFS)
+
+        Coord(int x, int y, int d) : x(x), y(y), d(d) {}
+        
+    };
+
     /*vector<vector<int> > distancias(const vector<pair<int,Pos> >& units) {
         vector<vector<int> > vec(units.size(), vector<int>(units.size(),0));
         for (int i = 0; i < units.size(); ++i) {
@@ -57,7 +68,7 @@ struct PLAYER_NAME : public Player {
     int num_wizards;            //Cantidad de magos
     bool dead;                  //Cierto si hemos perdido unidades
     bool newones;               //Cierto si hemos conseguido nuevas unidades
-    vector<pair<int,Pos> > my_dwarves_pos;
+    //vector<pair<int,Pos> > my_dwarves_pos;
 
     //------------ Funciones ------------//
 
@@ -112,6 +123,54 @@ struct PLAYER_NAME : public Player {
         //----- Actualizar unidades enemigas -----//
 
         boss = unit(boss_id);
+    }
+
+    bool bfs (int id, int& dist) {
+        Pos origen = unit(id).pos;
+        dist = -1;
+
+        int n = 59;
+        int m = 59;
+
+        vector<vector<bool> > visited(n+1, vector<bool>(m+1, false));
+        queue<Coord> cola;
+
+        cola.push(Coord(origen.i, origen.j, 0));
+
+        //cout << "Punto inicial OK" << endl;
+
+        while (not cola.empty())
+        {   
+            Coord pt = cola.front();
+            cola.pop();
+
+            int i = pt.x;
+            int j = pt.y;
+            int d = pt.d;
+                
+            if (mapa[i][j] == 't') {
+                dist = d;
+                return true;
+            }
+            visited[i][j] = true;
+
+            if (i > 0 and mapa[i-1][j] != 'X' and not visited[i-1][j]) {
+                cola.push(Coord(i-1, j, d+1)); // up
+            }
+            if (j < m and mapa[i][j+1] != 'X' and not visited[i][j+1]) {
+                cola.push(Coord(i, j+1, d+1)); // right
+            }
+            if (i < n and mapa[i+1][j] != 'X' and not visited[i+1][j]) {
+                cola.push(Coord(i+1, j, d+1)); // down  
+            }
+            if (j > 0 and mapa[i][j-1] != 'X' and not visited[i][j-1]) {
+                cola.push(Coord(i, j-1, d+1)); // left
+            }
+            
+        }
+
+        return false;
+
     }
 
     /**
