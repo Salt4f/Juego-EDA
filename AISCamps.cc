@@ -38,13 +38,38 @@ struct PLAYER_NAME : public Player {
     //Vector usado en el BFS
     struct Coord
     {
-        int x;  //Coordenada x
-        int y;  //Coordenada y
-        int d;  //Distancia (respecto al origen del BFS)
+        int x;      //Coordenada x
+        int y;      //Coordenada y
+        int d;      //Distancia (respecto al origen del BFS)
+        Cell cell;  //Casilla en la posición (x, y)
 
-        Coord(int x, int y, int d) : x(x), y(y), d(d) {}
-        
+        Coord(int x, int y, int d) : x(x), y(y), d(d)
+        {}
+
+        void set_pos(int x, int y) {
+            this->x = x;
+            this->y = y;
+        }
+
     };
+
+    //Crea una struct Coord con la casilla inicializada
+    Coord nueva_coord(int x, int y, int d) {
+        Coord new_coord(x, y, d);
+        new_coord.cell = cell(x, y);
+        return new_coord;
+    }
+
+    //--------- Funciones útiles --------//
+
+    bool caminable(Coord& pt) {
+        return pt.cell.type == Cave
+            or pt.cell.type == Outside;
+    }
+
+    void recalcular_casilla(Coord& pt) {
+        pt.cell = cell(pt.x, pt.y);
+    }
 
     /*vector<vector<int> > distancias(const vector<pair<int,Pos> >& units) {
         vector<vector<int> > vec(units.size(), vector<int>(units.size(),0));
@@ -81,7 +106,16 @@ struct PLAYER_NAME : public Player {
 
         update();
 
-        /*for (int i : my_dwarves) {
+        /*ofstream file;
+        file.open("matriz.txt");
+
+        for (int i : my_dwarves) {
+            file << i << ": " << bfs(i, 5).size() << endl;
+        }
+
+        file.close();
+
+        for (int i : my_dwarves) {
             Pos pos = unit(i).pos;
             my_dwarves_pos.push_back(make_pair(i, pos));
         }
@@ -123,55 +157,94 @@ struct PLAYER_NAME : public Player {
         //----- Actualizar unidades enemigas -----//
 
         boss = unit(boss_id);
+
     }
 
-    /*bool bfs (int id, int& dist) {
+    vector<pair<int, Pos> > bfs (int id, int max_d) {
         Pos origen = unit(id).pos;
-        dist = -1;
 
         int n = 59;
         int m = 59;
 
         vector<vector<bool> > visited(n+1, vector<bool>(m+1, false));
         queue<Coord> cola;
+        vector<pair<int,Pos> > ids;
 
-        cola.push(Coord(origen.i, origen.j, 0));
-
-        //cout << "Punto inicial OK" << endl;
+        cola.push(nueva_coord(origen.i, origen.j, 0));
+        visited[origen.i][origen.j] = true;
 
         while (not cola.empty())
         {   
             Coord pt = cola.front();
             cola.pop();
 
-            int i = pt.x;
-            int j = pt.y;
-            int d = pt.d;
-                
-            if (mapa[i][j] == 't') {
-                dist = d;
-                return true;
+            if (pt.d > 0 and pt.cell.id != -1 and unit(pt.cell.id).player == my_id) {
+                ids.push_back(make_pair(pt.cell.id, Pos(pt.x, pt.y)));
             }
-            visited[i][j] = true;
 
-            if (i > 0 and mapa[i-1][j] != 'X' and not visited[i-1][j]) {
-                cola.push(Coord(i-1, j, d+1)); // up
-            }
-            if (j < m and mapa[i][j+1] != 'X' and not visited[i][j+1]) {
-                cola.push(Coord(i, j+1, d+1)); // right
-            }
-            if (i < n and mapa[i+1][j] != 'X' and not visited[i+1][j]) {
-                cola.push(Coord(i+1, j, d+1)); // down  
-            }
-            if (j > 0 and mapa[i][j-1] != 'X' and not visited[i][j-1]) {
-                cola.push(Coord(i, j-1, d+1)); // left
-            }
+            if (pt.d < max_d) {
+
+                Coord nextpos = nueva_coord(pt.x - 1, pt.y, pt.d + 1);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Top
+                    visited[nextpos.x][nextpos.y] = true;
+                }
+
+                nextpos.set_pos(pt.x - 1, pt.y + 1);
+                recalcular_casilla(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Top-Right
+                    visited[nextpos.x][nextpos.y] = true;
+                }
+
+                nextpos.set_pos(pt.x, pt.y + 1);
+                recalcular_casilla(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Right
+                    visited[nextpos.x][nextpos.y] = true;
+                }
+
+                nextpos.set_pos(pt.x - 1, pt.y + 1);
+                recalcular_casilla(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Bottom-Right
+                    visited[nextpos.x][nextpos.y] = true;
+                }
+
+                nextpos.set_pos(pt.x + 1, pt.y);
+                recalcular_casilla(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Bottom
+                    visited[nextpos.x][nextpos.y] = true;
+                }
+
+                nextpos.set_pos(pt.x + 1, pt.y - 1);
+                recalcular_casilla(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Bottom-Left 
+                    visited[nextpos.x][nextpos.y] = true;
+                }
+
+                nextpos.set_pos(pt.x, pt.y - 1);
+                recalcular_casilla(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Left
+                    visited[nextpos.x][nextpos.y] = true;
+                }
+                
+                nextpos.set_pos(pt.x - 1, pt.y - 1);
+                recalcular_casilla(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Top-Left
+                    visited[nextpos.x][nextpos.y] = true;
+                }
             
+            }
         }
 
-        return false;
+        return ids;
 
-    }*/
+    }
 
     /**
      * Play method, invoked once per each round.
