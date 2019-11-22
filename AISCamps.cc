@@ -62,13 +62,21 @@ struct PLAYER_NAME : public Player {
 
     //--------- Funciones útiles --------//
 
-    bool caminable(Coord& pt) {
+    bool caminable(const Coord& pt) {
         return pt.cell.type == Cave
             or pt.cell.type == Outside;
     }
 
     void recalcular_casilla(Coord& pt) {
         pt.cell = cell(pt.x, pt.y);
+    }
+
+    int distancia(const Pos& p1, const Pos& p2) {
+        return max(abs(p1.i - p2.i), abs(p1.j - p2.j));
+    }
+
+    int distancia_cuadrada(const Pos& p1, const Pos& p2) {
+        return abs(p1.i - p2.i) + abs(p1.j - p2.j);
     }
 
     /*vector<vector<int> > distancias(const vector<pair<int,Pos> >& units) {
