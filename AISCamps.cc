@@ -53,6 +53,14 @@ struct PLAYER_NAME : public Player {
             this->y = y;
         }
 
+        bool operator<(const Coord& b) {
+            return (this->d < b.d);
+        }
+
+        bool operator>(const Coord& b) {
+            return (this->d > b.d);
+        }
+
     };
 
     //Crea una struct Coord con la casilla inicializada
@@ -76,6 +84,15 @@ struct PLAYER_NAME : public Player {
         }
         return new_coord;
     }
+
+    //Struct creada para el priority_queue del Dijkstra
+    struct comp
+    {
+        bool operator()(const Coord& a, const Coord& b)
+        {
+            return a.d > b.d;
+        }
+    };
 
     //--------- Funciones útiles --------//
 
@@ -150,14 +167,28 @@ struct PLAYER_NAME : public Player {
 
         update();
 
-        /*ofstream file;
-        file.open("matriz.txt");
+        /*ofstream file, file2, file3;
+        file.open("bfs.txt");
+        file2.open("dijkstra.txt");
+        file3.open("movimientos.txt");
 
+        vector<vector<int> > d;
+        vector<vector<int> > p;
         for (int i : my_dwarves) {
-            file << i << ": " << bfs(i, 5).size() << endl;
+            file << i << endl;
+            bfs(i, 5, file);
+            file2 << i << endl;
+            dijkstra(unit(i).pos.i, unit(i).pos.j, d, p, 5, file2);
+            for (auto i : d) {
+                for (auto j : i) {
+                    file3 << j << "\t";
+                }
+                file3 << endl;
+            }
+            file3 << endl;
         }
 
-        file.close();
+        file.close(); file2.close(); file3.close();
 
         for (int i : my_dwarves) {
             Pos pos = unit(i).pos;
@@ -289,36 +320,132 @@ struct PLAYER_NAME : public Player {
 
     }
 
-    /*void dijkstra(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p) {
+    Pos dijkstra(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p, int max_d) {
 
-        int n = 60;
-        int m = 60;
+        int n = 60; //n = numero de filas
+        int m = 60; //m = numero de columnas
 
-        //int n = G.size(); //n = numero de filas
         d = vector<vector<int> >(n, vector<int> (m, INFINIT)); //d = vector de distancias
         d[i][j] = 0; //el origen tiene distancia 0
         p = vector<vector<int> >(n, vector<int>(m,-1)); //p = vector de nodos previos
-        vector<bool> S(n, false);
-        priority_queue<ArcP, vector<ArcP>, greater<ArcP> > Q;
-        Q.push(ArcP(0, s));
-        while (not Q.empty()) {
-            int u = Q.top().second; //u = nodo actual
-            Q.pop();
-            if (not S[u]) { //No visitado u
-                S[u] = true;
-                for (int i = 0; i < int(G[u].size()); ++i) { //Para todos los nodos vecinos
-                    int v = G[u][i].second; //v = nodo vecino
-                    int c = G[u][i].first; //c = distancia del nodo
-                    if (d[v] > d[u] + c) {  //si la distancia al nodo vecino es más grande que
-                                            //la distancia al nodo actual más la verdadera distancia al nodo vecino
-                        d[v] = d[u] + c;
-                        p[v] = u;           //previo al nodo v es u
-                        Q.push(ArcP(d[v], v));
+        vector<vector<bool> > visited(n, vector<bool>(m,false));
+        priority_queue<Coord, vector<Coord>, comp > cola;
+        cola.push(nueva_coord(i, j));
+
+        while (not cola.empty()) {
+            Coord pt = cola.top(); //pt = nodo actual
+            cola.pop();
+
+            if (d[pt.x][pt.y] > 0 and pt.cell.id != -1 and unit(pt.cell.id).player == my_id) {
+                //ids.push_back(make_pair(pt.cell.id, Pos(pt.x, pt.y)));
+            }
+
+            if (d[pt.x][pt.y] < max_d) {
+
+                Coord nextpos = nueva_coord(pt.x - 1, pt.y);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + pt.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + pt.d;
+                        p[nextpos.x][nextpos.y] = Bottom;
+                        cola.push(nextpos); // Top
+                        visited[nextpos.x][nextpos.y] = true;
                     }
                 }
+
+                nextpos.set_pos(pt.x - 1, pt.y + 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + pt.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + pt.d;
+                        p[nextpos.x][nextpos.y] = LB;
+                        cola.push(nextpos); // Top-Right
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x, pt.y + 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + pt.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + pt.d;
+                        p[nextpos.x][nextpos.y] = Left;
+                        cola.push(nextpos); // Right
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x - 1, pt.y + 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + pt.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + pt.d;
+                        p[nextpos.x][nextpos.y] = TL;
+                        cola.push(nextpos); // Bottom-Right
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x + 1, pt.y);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + pt.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + pt.d;
+                        p[nextpos.x][nextpos.y] = Top;
+                        cola.push(nextpos); // Bottom
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x + 1, pt.y - 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + pt.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + pt.d;
+                        p[nextpos.x][nextpos.y] = RT;
+                        cola.push(nextpos); // Bottom-Left 
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x, pt.y - 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + pt.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + pt.d;
+                        p[nextpos.x][nextpos.y] = Right;
+                        cola.push(nextpos); // Left
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+                
+                nextpos.set_pos(pt.x - 1, pt.y - 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + pt.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + pt.d;
+                        p[nextpos.x][nextpos.y] = BR;
+                        cola.push(nextpos); // Top-Left
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
             }
+
+            /*for (int i = 0; i < int(G[u].size()); ++i) { //Para todos los nodos vecinos
+                int v = G[u][i].second; //v = nodo vecino
+                int c = G[u][i].first; //c = distancia del nodo
+                if (d[v] > d[u] + c) {  //si la distancia al nodo vecino es más grande que
+                                        //la distancia al nodo actual más la verdadera distancia al nodo vecino
+                    d[v] = d[u] + c;
+                    p[v] = u;           //previo al nodo v es u
+                    Q.push(ArcP(d[v], v));
+                }
+            }*/
+
         }
-    }*/
+        
+        return Pos(0,0);
+    }
 
     /**
      * Play method, invoked once per each round.
@@ -328,7 +455,10 @@ struct PLAYER_NAME : public Player {
         else {
             update();
             for (int i : my_dwarves) {
-                if (pos_ok(unit(i).pos + Top) and (cell(unit(i).pos + Top).type == Cave or cell(unit(i).pos + Top).type == Rock))
+                if (en_peligro(unit(i).pos)) {
+                    command(i, Dir(random(0, LB)));
+                }
+                else if (pos_ok(unit(i).pos + Top) and (cell(unit(i).pos + Top).type == Cave or cell(unit(i).pos + Top).type == Rock))
                     command(i, Top);
                 else
                     command(i, Dir(random(0, LB)));
