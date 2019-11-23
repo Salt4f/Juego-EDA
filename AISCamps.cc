@@ -20,6 +20,8 @@ struct PLAYER_NAME : public Player {
 
     //---------- Definiciones -----------//
 
+    static const int INFINIT = 10000;
+
     struct Grupo
     {
         int wizard; //ID del mago del grupo
@@ -54,9 +56,24 @@ struct PLAYER_NAME : public Player {
     };
 
     //Crea una struct Coord con la casilla inicializada
-    Coord nueva_coord(int x, int y, int d) {
+    Coord nueva_coord_bfs(int x, int y, int d) {
         Coord new_coord(x, y, d);
         new_coord.cell = cell(x, y);
+        return new_coord;
+    }
+
+    Coord nueva_coord(int x, int y) {
+        Coord new_coord(x, y, 1);
+        new_coord.cell = cell(x, y);
+        Pos pt(x, y);
+        if (en_peligro(pt))
+            new_coord.d = INFINIT;
+        else if (new_coord.cell.type == Abyss or new_coord.cell.type == Granite) {
+            new_coord.d = INFINIT;
+        }
+        else if (new_coord.cell.type == Rock) {
+            new_coord.d += new_coord.cell.turns;
+        }
         return new_coord;
     }
 
@@ -71,12 +88,30 @@ struct PLAYER_NAME : public Player {
         pt.cell = cell(pt.x, pt.y);
     }
 
-    int distancia(const Pos& p1, const Pos& p2) {
+    void recalcular_distancia(Coord& pt) {
+        recalcular_casilla(pt);
+        pt.d = 1;
+        Pos pos(pt.x, pt.y);
+        if (en_peligro(pos))
+            pt.d = INFINIT;
+        else if (pt.cell.type == Abyss or pt.cell.type == Granite) {
+            pt.d = INFINIT;
+        }
+        else if (pt.cell.type == Rock) {
+            pt.d += pt.cell.turns;
+        }
+    }
+
+    static int distancia(const Pos& p1, const Pos& p2) {
         return max(abs(p1.i - p2.i), abs(p1.j - p2.j));
     }
 
-    int distancia_cuadrada(const Pos& p1, const Pos& p2) {
+    static int distancia_cuadrada(const Pos& p1, const Pos& p2) {
         return abs(p1.i - p2.i) + abs(p1.j - p2.j);
+    }
+
+    bool en_peligro(const Pos &pt) {
+        return distancia_cuadrada(boss.pos, pt) < distancia_seguridad;
     }
 
     /*vector<vector<int> > distancias(const vector<pair<int,Pos> >& units) {
@@ -101,7 +136,7 @@ struct PLAYER_NAME : public Player {
     int num_wizards;            //Cantidad de magos
     bool dead;                  //Cierto si hemos perdido unidades
     bool newones;               //Cierto si hemos conseguido nuevas unidades
-    //vector<pair<int,Pos> > my_dwarves_pos;
+    int distancia_seguridad;    //Distancia de seguridad respecto al Balrog
 
     //------------ Funciones ------------//
 
@@ -111,6 +146,7 @@ struct PLAYER_NAME : public Player {
         boss_id = balrog_id();
         num_dwarves = 20;
         num_wizards = 5;
+        distancia_seguridad = 20;
 
         update();
 
@@ -165,7 +201,6 @@ struct PLAYER_NAME : public Player {
         //----- Actualizar unidades enemigas -----//
 
         boss = unit(boss_id);
-
     }
 
     vector<pair<int, Pos> > bfs (int id, int max_d) {
@@ -178,7 +213,7 @@ struct PLAYER_NAME : public Player {
         queue<Coord> cola;
         vector<pair<int,Pos> > ids;
 
-        cola.push(nueva_coord(origen.i, origen.j, 0));
+        cola.push(nueva_coord_bfs(origen.i, origen.j, 0));
         visited[origen.i][origen.j] = true;
 
         while (not cola.empty())
@@ -192,7 +227,7 @@ struct PLAYER_NAME : public Player {
 
             if (pt.d < max_d) {
 
-                Coord nextpos = nueva_coord(pt.x - 1, pt.y, pt.d + 1);
+                Coord nextpos = nueva_coord_bfs(pt.x - 1, pt.y, pt.d + 1);
                 if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
                     cola.push(nextpos); // Top
                     visited[nextpos.x][nextpos.y] = true;
@@ -253,6 +288,37 @@ struct PLAYER_NAME : public Player {
         return ids;
 
     }
+
+    /*void dijkstra(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p) {
+
+        int n = 60;
+        int m = 60;
+
+        //int n = G.size(); //n = numero de filas
+        d = vector<vector<int> >(n, vector<int> (m, INFINIT)); //d = vector de distancias
+        d[i][j] = 0; //el origen tiene distancia 0
+        p = vector<vector<int> >(n, vector<int>(m,-1)); //p = vector de nodos previos
+        vector<bool> S(n, false);
+        priority_queue<ArcP, vector<ArcP>, greater<ArcP> > Q;
+        Q.push(ArcP(0, s));
+        while (not Q.empty()) {
+            int u = Q.top().second; //u = nodo actual
+            Q.pop();
+            if (not S[u]) { //No visitado u
+                S[u] = true;
+                for (int i = 0; i < int(G[u].size()); ++i) { //Para todos los nodos vecinos
+                    int v = G[u][i].second; //v = nodo vecino
+                    int c = G[u][i].first; //c = distancia del nodo
+                    if (d[v] > d[u] + c) {  //si la distancia al nodo vecino es más grande que
+                                            //la distancia al nodo actual más la verdadera distancia al nodo vecino
+                        d[v] = d[u] + c;
+                        p[v] = u;           //previo al nodo v es u
+                        Q.push(ArcP(d[v], v));
+                    }
+                }
+            }
+        }
+    }*/
 
     /**
      * Play method, invoked once per each round.
