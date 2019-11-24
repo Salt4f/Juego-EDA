@@ -22,6 +22,36 @@ struct PLAYER_NAME : public Player {
 
     static const int INFINIT = 10000;
 
+    struct Unidad
+    {
+        int id;                 //ID de la unidad
+        Unit unit;              //Unidad
+        bool damage;            //Cierto si la unidad ha recibido daños
+        stack<Dir> path;        //Camino a seguir por la unidad
+
+        Unidad(int id) {
+            this->id = id;
+            damage = false;
+            //path = nullptr;
+        }
+
+        void comprueba_atacada() {
+            if (unit.type == Dwarf) {
+                damage = unit.health < 100;
+            }
+            else damage = unit.health < 50;
+        }
+
+        Dir next() {
+            if (path.empty()) return Top;
+            Dir next = path.top();
+            path.pop();
+            return next;
+        }
+
+    };
+    
+
     struct Grupo
     {
         int wizard; //ID del mago del grupo
@@ -131,24 +161,65 @@ struct PLAYER_NAME : public Player {
         return distancia_cuadrada(boss.pos, pt) < distancia_seguridad;
     }
 
-    /*vector<vector<int> > distancias(const vector<pair<int,Pos> >& units) {
-        vector<vector<int> > vec(units.size(), vector<int>(units.size(),0));
-        for (int i = 0; i < units.size(); ++i) {
-            for (int j = 0; j < i; ++j) {
-                vec[i][j] = abs(units[i].second.i - units[j].second.i)
-                +  abs(units[i].second.j - units[j].second.j);
-            }
+    static Dir calcular_direccion(const Pos& origen, const Pos& destino) {
+        int i = destino.i - origen.i;
+        int j = destino.j - origen.j;
+
+        if (i == 1) {
+            if (j == 1) return BR;
+            else if (j == -1) return LB;
+            else return Bottom;
         }
-        return vec;
-    }*/
+        else if (i == -1) {
+            if (j == 1) return RT;
+            else if (j == -1) return TL;
+            else return Top;
+        }
+        else { //i == 0
+            if (j == 1) return Right;
+            else if (j == -1) return Left;
+            else return None;
+        }
+    }
+
+    vector<Unidad> crear_unidades() {
+        vector<Unidad> v;
+        for (int id : my_dwarves) {
+            Unidad u(id);
+            u.unit = unit(id);
+            u.comprueba_atacada();
+            camino_a_tesoro(u);
+            v.push_back(u);
+        }
+        for (int id : my_wizards) {
+            Unidad u(id);
+            u.unit = unit(id);
+            u.comprueba_atacada();
+            //camino_a_tesoro(u);
+            v.push_back(u);
+        }
+        return v;
+    }
+
+    void actualizar_unidad(Unidad& u) {
+        u.unit = unit(u.id);
+        u.comprueba_atacada();
+        if (u.unit.type == Dwarf) camino_a_tesoro(u);
+    }
+
+    void camino_a_tesoro(Unidad& u) {
+        vector<vector<int> > d,p;
+        u.path = dijkstra(u.unit.pos.i, u.unit.pos.j, d, p, 10);
+    }
 
     //------------ Variables ------------//
 
     int my_id;                  //Mi ID
     int boss_id;                //Balrog ID
     Unit boss;                  //Balrog unit info
-    vector<int> my_dwarves;     //Vector con los ID de mis enanos
+    vector<int> my_dwarves;     //Vector con las ID de mis enanos
     vector<int> my_wizards;     //Vector con los ID de mis magos
+    vector<Unidad> my_units;    //Vector con mis unidades
     int num_dwarves;            //Cantidad de enanos
     int num_wizards;            //Cantidad de magos
     bool dead;                  //Cierto si hemos perdido unidades
@@ -167,13 +238,21 @@ struct PLAYER_NAME : public Player {
 
         update();
 
-        /*ofstream file, file2, file3;
+        for (Unidad u : my_units) {
+            command(u.id, u.next());
+        }
+        /*
+        ofstream file, file2, file3;
         file.open("bfs.txt");
         file2.open("dijkstra.txt");
-        file3.open("movimientos.txt");
+        file3.open("movimientos.txt");*/
 
-        vector<vector<int> > d;
+        /*vector<vector<int> > d;
         vector<vector<int> > p;
+        cout << "Punto origen: " << unit(my_dwarves[0]).pos.i << " " << unit(my_dwarves[0]).pos.j << endl;
+        dijkstra(unit(my_dwarves[0]).pos.i, unit(my_dwarves[0]).pos.j, d, p, 30);*/
+
+        /*
         for (int i : my_dwarves) {
             file << i << endl;
             bfs(i, 5, file);
@@ -228,6 +307,15 @@ struct PLAYER_NAME : public Player {
 
         num_dwarves = size_d;
         num_wizards = size_w;
+
+        if (dead or newones) {
+            my_units = crear_unidades();
+        }
+        else {
+            for (Unidad u : my_units) {
+                actualizar_unidad(u);
+            }
+        }
 
         //----- Actualizar unidades enemigas -----//
 
@@ -320,7 +408,7 @@ struct PLAYER_NAME : public Player {
 
     }
 
-    Pos dijkstra(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p, int max_d) {
+    stack<Dir> dijkstra(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p, int max_d) {
 
         int n = 60; //n = numero de filas
         int m = 60; //m = numero de columnas
@@ -332,12 +420,34 @@ struct PLAYER_NAME : public Player {
         priority_queue<Coord, vector<Coord>, comp > cola;
         cola.push(nueva_coord(i, j));
 
+        pair<int, stack<Dir> > resultado;
+        resultado.first = INFINIT;
+
         while (not cola.empty()) {
             Coord pt = cola.top(); //pt = nodo actual
             cola.pop();
 
-            if (d[pt.x][pt.y] > 0 and pt.cell.id != -1 and unit(pt.cell.id).player == my_id) {
-                //ids.push_back(make_pair(pt.cell.id, Pos(pt.x, pt.y)));
+            stack<pair<int,int> > pila;
+
+            if (d[pt.x][pt.y] > 0 and pt.cell.type == Cave and pt.cell.treasure) {
+                //cout << "Tesoro a " << d[pt.x][pt.y] << endl;
+                if (resultado.first > d[pt.x][pt.y]) {
+                    resultado.first = d[pt.x][pt.y];
+                    stack<Dir> camino;
+                    int x = pt.x;
+                    int y = pt.y;
+
+                    while (p[x][y] != -1) {
+                        //cout << x << " " << y << endl;
+                        Pos final(x,y);
+                        Pos origen = final + Dir(p[x][y]);
+                        x = origen.i;
+                        y = origen.j;
+                        camino.push(calcular_direccion(origen, final));
+                    }
+                    resultado.second = camino;
+                }
+
             }
 
             if (d[pt.x][pt.y] < max_d) {
@@ -444,17 +554,21 @@ struct PLAYER_NAME : public Player {
 
         }
         
-        return Pos(0,0);
+        return resultado.second;
     }
 
     /**
      * Play method, invoked once per each round.
      */
     virtual void play () {
+        //cout << round() << endl;
         if (round() == 1) init();
         else {
             update();
-            for (int i : my_dwarves) {
+            for (Unidad u : my_units) {
+                command(u.id, u.next());
+            }
+            /*for (int i : my_dwarves) {
                 if (en_peligro(unit(i).pos)) {
                     command(i, Dir(random(0, LB)));
                 }
@@ -462,7 +576,7 @@ struct PLAYER_NAME : public Player {
                     command(i, Top);
                 else
                     command(i, Dir(random(0, LB)));
-            }
+            }*/
         }
     }
 
