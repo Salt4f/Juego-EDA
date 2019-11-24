@@ -209,7 +209,7 @@ struct PLAYER_NAME : public Player {
 
     void camino_a_tesoro(Unidad& u) {
         vector<vector<int> > d,p;
-        u.path = dijkstra(u.unit.pos.i, u.unit.pos.j, d, p, 10);
+        u.path = dijkstra(u.unit.pos.i, u.unit.pos.j, d, p, 50);
     }
 
     //------------ Variables ------------//
@@ -426,8 +426,6 @@ struct PLAYER_NAME : public Player {
         while (not cola.empty()) {
             Coord pt = cola.top(); //pt = nodo actual
             cola.pop();
-
-            stack<pair<int,int> > pila;
 
             if (d[pt.x][pt.y] > 0 and pt.cell.type == Cave and pt.cell.treasure) {
                 //cout << "Tesoro a " << d[pt.x][pt.y] << endl;
