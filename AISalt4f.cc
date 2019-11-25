@@ -209,7 +209,8 @@ struct PLAYER_NAME : public Player {
 
     void camino_a_tesoro(Unidad& u) {
         vector<vector<int> > d,p;
-        u.path = dijkstra(u.unit.pos.i, u.unit.pos.j, d, p, 50);
+        cout << "Unidad " << u.id << ":" << endl;
+        dijkstra(u.unit.pos.i, u.unit.pos.j, d, p, u.path, 50);
     }
 
     //------------ Variables ------------//
@@ -234,7 +235,7 @@ struct PLAYER_NAME : public Player {
         boss_id = balrog_id();
         num_dwarves = 20;
         num_wizards = 5;
-        distancia_seguridad = 20;
+        distancia_seguridad = 1;
 
         update();
 
@@ -408,7 +409,7 @@ struct PLAYER_NAME : public Player {
 
     }
 
-    stack<Dir> dijkstra(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p, int max_d) {
+    void dijkstra(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p, stack<Dir>& camino, int max_d) {
 
         int n = 60; //n = numero de filas
         int m = 60; //m = numero de columnas
@@ -420,35 +421,35 @@ struct PLAYER_NAME : public Player {
         priority_queue<Coord, vector<Coord>, comp > cola;
         cola.push(nueva_coord(i, j));
 
-        pair<int, stack<Dir> > resultado;
-        resultado.first = INFINIT;
+        int distancia = INFINIT;
+        camino = stack<Dir>();
 
         while (not cola.empty()) {
             Coord pt = cola.top(); //pt = nodo actual
             cola.pop();
 
-            if (d[pt.x][pt.y] > 0 and pt.cell.type == Cave and pt.cell.treasure) {
-                //cout << "Tesoro a " << d[pt.x][pt.y] << endl;
-                if (resultado.first > d[pt.x][pt.y]) {
-                    resultado.first = d[pt.x][pt.y];
-                    stack<Dir> camino;
-                    int x = pt.x;
-                    int y = pt.y;
-
-                    while (p[x][y] != -1) {
-                        //cout << x << " " << y << endl;
-                        Pos final(x,y);
-                        Pos origen = final + Dir(p[x][y]);
-                        x = origen.i;
-                        y = origen.j;
-                        camino.push(calcular_direccion(origen, final));
-                    }
-                    resultado.second = camino;
-                }
-
-            }
-
             if (d[pt.x][pt.y] < max_d) {
+
+                if (d[pt.x][pt.y] > 0 and pt.cell.type == Cave and pt.cell.treasure) {
+                    //cout << "Tesoro a " << d[pt.x][pt.y] << endl;
+                    if (distancia > d[pt.x][pt.y]) {
+                        camino = stack<Dir>();
+                        distancia = d[pt.x][pt.y];
+                        int x = pt.x;
+                        int y = pt.y;
+
+                        while (p[x][y] != -1) {
+                            //cout << x << " " << y << endl;
+                            Pos final(x,y);
+                            Pos origen = final + Dir(p[x][y]);
+                            x = origen.i;
+                            y = origen.j;
+                            camino.push(calcular_direccion(origen, final));
+                            cout << calcular_direccion(origen, final);
+                        }
+                        cout << endl;
+                    }
+                }
 
                 Coord nextpos = nueva_coord(pt.x - 1, pt.y);
                 if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
@@ -551,8 +552,6 @@ struct PLAYER_NAME : public Player {
             }*/
 
         }
-        
-        return resultado.second;
     }
 
     /**
