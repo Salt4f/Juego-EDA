@@ -5,7 +5,7 @@
  * Write the name of your player and save this file
  * with the same name and .cc extension.
  */
-#define PLAYER_NAME Salt4f
+#define PLAYER_NAME Salt4f_v0
 
 
 struct PLAYER_NAME : public Player {
@@ -123,10 +123,9 @@ struct PLAYER_NAME : public Player {
     }
 
     bool caminable2(const Coord& pt) {
-        return (pt.cell.type == Cave
+        return pt.cell.type == Cave
             or pt.cell.type == Outside
-            or pt.cell.type == Rock)
-            and unit(pt.cell.id).player != my_id;
+            or pt.cell.type == Rock;
     }
 
     void recalcular_casilla(Coord& pt) {
@@ -143,16 +142,6 @@ struct PLAYER_NAME : public Player {
             pt.d = INFINIT;
         }
         else if (pt.cell.type == Rock) {
-            pt.d += pt.cell.turns;
-        }
-        else if ((pt.cell.id != -1) and (unit(pt.cell.id).player != my_id)) {
-            pt.d = INFINIT;
-        }
-    }
-
-    void recalcular_distancia2(Coord& pt) {
-        //recalcular_casilla(pt);
-        if (pt.cell.type == Rock) {
             pt.d += pt.cell.turns;
         }
         else if ((pt.cell.id != -1) and (unit(pt.cell.id).player != my_id)) {
@@ -230,7 +219,7 @@ struct PLAYER_NAME : public Player {
     }
 
     void camino_a_lo_mas_cerca(Unidad& u) {
-        u.path = bfs_v3(u.id, 15);
+        u.path = bfs_v3(u.id, 30);
     }
 
     void camino_al_danado(Unidad& u) {
@@ -250,7 +239,6 @@ struct PLAYER_NAME : public Player {
     bool dead;                  //Cierto si hemos perdido unidades
     bool newones;               //Cierto si hemos conseguido nuevas unidades
     int distancia_seguridad;    //Distancia de seguridad respecto al Balrog
-    bool inicio = true;         //Primera ronda
 
     //------------ Funciones ------------//
 
@@ -263,8 +251,6 @@ struct PLAYER_NAME : public Player {
         distancia_seguridad = 1;
 
         update(true);
-
-        inicio = false;
 
     }
 
@@ -488,8 +474,6 @@ struct PLAYER_NAME : public Player {
         cola.push(nueva_coord_bfs(origen.i, origen.j, 0));
         visited[origen.i][origen.j] = true;
 
-        int distancia = INFINIT;
-
         while (not cola.empty())
         {   
             Coord pt = cola.front();
@@ -497,92 +481,82 @@ struct PLAYER_NAME : public Player {
 
             if (pt.d > 0 and (pt.cell.treasure or (pt.cell.id != -1 and unit(pt.cell.id).player != my_id))) {
                 
-                if (distancia > pt.d) {
+                int x = pt.x;
+                int y = pt.y;
 
-                    distancia = pt.d;
-
-                    int x = pt.x;
-                    int y = pt.y;
-
-                    path = stack<Dir>();
-
-                    while (p[x][y] != -1) {
-                        Pos final(x,y);
-                        Pos origen = final + Dir(p[x][y]);
-                        x = origen.i;
-                        y = origen.j;
-                        path.push(calcular_direccion(origen, final));
-                        //cout << calcular_direccion(origen, final);
-                    }
-
-                    /*if (my_dwarves[0] == cell(origen).id) {
-                        cout << "Unidad " << my_dwarves[0] << ": Encontrado algo en " << pt.x << " "
-                        << pt.y << " a distancia " << distancia << endl;
-                    }*/
+                while (p[x][y] != -1) {
+                    //cout << x << " " << y << endl;
+                    Pos final(x,y);
+                    Pos origen = final + Dir(p[x][y]);
+                    x = origen.i;
+                    y = origen.j;
+                    path.push(calcular_direccion(origen, final));
+                    //cout << calcular_direccion(origen, final);
                 }
+
+                return path;
 
             }
 
             if (pt.d < max_d) {
 
                 Coord nextpos = nueva_coord_bfs(pt.x - 1, pt.y, pt.d + 1);
-                recalcular_distancia2(nextpos);
                 if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
                     cola.push(nextpos); // Top
                     visited[nextpos.x][nextpos.y] = true;
                     p[nextpos.x][nextpos.y] = Bottom;
                 }
 
-                nextpos = nueva_coord_bfs(pt.x - 1, pt.y + 1, pt.d + 1);
-                recalcular_distancia2(nextpos);
+                nextpos.set_pos(pt.x - 1, pt.y + 1);
+                recalcular_casilla(nextpos);
                 if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
                     cola.push(nextpos); // Top-Right
                     visited[nextpos.x][nextpos.y] = true;
                     p[nextpos.x][nextpos.y] = LB;
                 }
 
-                nextpos = nueva_coord_bfs(pt.x, pt.y + 1, pt.d + 1);
-                recalcular_distancia2(nextpos);
+                nextpos.set_pos(pt.x, pt.y + 1);
+                recalcular_casilla(nextpos);
                 if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
                     cola.push(nextpos); // Right
                     visited[nextpos.x][nextpos.y] = true;
                     p[nextpos.x][nextpos.y] = Left;
                 }
 
-                nextpos = nueva_coord_bfs(pt.x + 1, pt.y + 1, pt.d + 1);
-                recalcular_distancia2(nextpos);
+                nextpos.set_pos(pt.x + 1, pt.y + 1);
+                recalcular_casilla(nextpos);
                 if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
                     cola.push(nextpos); // Right-Bottom
                     visited[nextpos.x][nextpos.y] = true;
                     p[nextpos.x][nextpos.y] = TL;
                 }
 
-                nextpos = nueva_coord_bfs(pt.x + 1, pt.y, pt.d + 1);
-                recalcular_distancia2(nextpos);
+                nextpos.set_pos(pt.x + 1, pt.y);
+                recalcular_casilla(nextpos);
                 if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
                     cola.push(nextpos); // Bottom
                     visited[nextpos.x][nextpos.y] = true;
                     p[nextpos.x][nextpos.y] = Top;
                 }
                 
-                nextpos = nueva_coord_bfs(pt.x + 1, pt.y - 1, pt.d + 1);
-                recalcular_distancia2(nextpos);
+                nextpos.set_pos(pt.x + 1, pt.y - 1);
+                recalcular_casilla(nextpos);
                 if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
                     cola.push(nextpos); // Bottom-Left
                     visited[nextpos.x][nextpos.y] = true;
                     p[nextpos.x][nextpos.y] = RT;
                 }
 
-                nextpos = nueva_coord_bfs(pt.x, pt.y - 1, pt.d + 1);
-                recalcular_distancia2(nextpos);
+                nextpos.set_pos(pt.x, pt.y - 1);
+                recalcular_casilla(nextpos);
                 if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
                     cola.push(nextpos); // Left
                     visited[nextpos.x][nextpos.y] = true;
                     p[nextpos.x][nextpos.y] = Right;
                 }
 
-                nextpos = nueva_coord_bfs(pt.x - 1, pt.y - 1, pt.d + 1);
-                recalcular_distancia2(nextpos);
+                nextpos.set_pos(pt.x - 1, pt.y - 1);
+                recalcular_casilla(nextpos);
                 if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
                     cola.push(nextpos); // Top-Left
                     visited[nextpos.x][nextpos.y] = true;
@@ -903,10 +877,8 @@ struct PLAYER_NAME : public Player {
      */
     virtual void play () {
         //cout << round() << endl;
-        if (inicio) init();
+        if (round() == 1) init();
         else {
-            if (status(my_id) > 0.98) return;
-            //cout << "Ronda " << round() << endl;
             update(false);
         }
     }
