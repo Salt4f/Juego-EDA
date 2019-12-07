@@ -52,7 +52,7 @@ struct PLAYER_NAME : public Player {
     };
     
 
-    struct Grupo
+    /*struct Grupo
     {
         int wizard; //ID del mago del grupo
         int left;   //ID del enano de la izquierda
@@ -65,9 +65,9 @@ struct PLAYER_NAME : public Player {
         int middle; //ID del enano del medio
         int left;   //ID del enano de la izquieda
         int right;  //ID del enano de la derecha
-    };
+    };*/
 
-    //Vector usado en el BFS
+    //Información usada en el BFS
     struct Coord
     {
         int x;      //Coordenada x
@@ -193,8 +193,8 @@ struct PLAYER_NAME : public Player {
         return Dir(g.random(Bottom, LB));
     }
 
-    vector<Unidad> crear_unidades() {
-        vector<Unidad> v;
+    void crear_unidades(vector<Unidad>& v ) {
+        v = vector<Unidad>();
         for (int id : my_dwarves) {
             Unidad u(id);
             u.unit = unit(id);
@@ -209,7 +209,6 @@ struct PLAYER_NAME : public Player {
             camino_al_danado(u);
             v.push_back(u);
         }
-        return v;
     }
 
     void actualizar_unidad(Unidad& u) {
@@ -258,58 +257,9 @@ struct PLAYER_NAME : public Player {
         num_wizards = 5;
         distancia_seguridad = 1;
 
-        my_units = crear_unidades();
+        crear_unidades(my_units);
 
         update();
-
-        for (Unidad u : my_units) {
-            command(u.id, u.next());
-        }
-        /*
-        ofstream file, file2, file3;
-        file.open("bfs.txt");
-        file2.open("dijkstra.txt");
-        file3.open("movimientos.txt");*/
-
-        /*vector<vector<int> > d;
-        vector<vector<int> > p;
-        cout << "Punto origen: " << unit(my_dwarves[0]).pos.i << " " << unit(my_dwarves[0]).pos.j << endl;
-        dijkstra(unit(my_dwarves[0]).pos.i, unit(my_dwarves[0]).pos.j, d, p, 30);*/
-
-        /*
-        for (int i : my_dwarves) {
-            file << i << endl;
-            bfs(i, 5, file);
-            file2 << i << endl;
-            dijkstra(unit(i).pos.i, unit(i).pos.j, d, p, 5, file2);
-            for (auto i : d) {
-                for (auto j : i) {
-                    file3 << j << "\t";
-                }
-                file3 << endl;
-            }
-            file3 << endl;
-        }
-
-        file.close(); file2.close(); file3.close();
-
-        for (int i : my_dwarves) {
-            Pos pos = unit(i).pos;
-            my_dwarves_pos.push_back(make_pair(i, pos));
-        }
-
-        ofstream file;
-        file.open("matriz.txt");
-
-        auto dist = distancias(my_dwarves_pos);
-        for (int i = 0; i < dist.size(); ++i) {
-            for (int j = 0; j < dist.size(); ++j) {
-                file << dist[i][j] << "\t";
-            }
-            file << endl;
-        }
-
-        file.close();*/
 
     }
 
@@ -333,7 +283,7 @@ struct PLAYER_NAME : public Player {
         num_wizards = size_w;
 
         if (dead or newones) {
-            my_units = crear_unidades();
+            crear_unidades(my_units);
         }
         else {
             for (Unidad u : my_units) {
@@ -344,6 +294,13 @@ struct PLAYER_NAME : public Player {
         //----- Actualizar unidades enemigas -----//
 
         boss = unit(boss_id);
+
+        //---------------------------------------
+
+        for (Unidad u : my_units) {
+            command(u.id, u.next());
+        }
+
     }
 
     vector<pair<int, Pos> > bfs (int id, int max_d) {
@@ -670,12 +627,16 @@ struct PLAYER_NAME : public Player {
         priority_queue<Coord, vector<Coord>, comp > cola;
         cola.push(nueva_coord(i, j));
 
+        bool encontrado = false;
+
         int distancia = INFINIT;
         camino = stack<Dir>();
 
         while (not cola.empty()) {
             Coord pt = cola.top(); //pt = nodo actual
             cola.pop();
+
+            encontrado = false;
 
             if (d[pt.x][pt.y] < max_d) {
 
@@ -697,108 +658,102 @@ struct PLAYER_NAME : public Player {
                             //cout << calcular_direccion(origen, final);
                         }
                         //cout << endl;
+
+                        encontrado = true;
                     }
                 }
 
-                Coord nextpos = nueva_coord(pt.x - 1, pt.y);
-                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                        p[nextpos.x][nextpos.y] = Bottom;
-                        cola.push(nextpos); // Top
-                        visited[nextpos.x][nextpos.y] = true;
-                    }
-                }
+                if (not encontrado) {
 
-                nextpos.set_pos(pt.x - 1, pt.y + 1);
-                recalcular_distancia(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                        p[nextpos.x][nextpos.y] = LB;
-                        cola.push(nextpos); // Top-Right
-                        visited[nextpos.x][nextpos.y] = true;
+                    Coord nextpos = nueva_coord(pt.x - 1, pt.y);
+                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                            p[nextpos.x][nextpos.y] = Bottom;
+                            cola.push(nextpos); // Top
+                            visited[nextpos.x][nextpos.y] = true;
+                        }
                     }
-                }
 
-                nextpos.set_pos(pt.x, pt.y + 1);
-                recalcular_distancia(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                        p[nextpos.x][nextpos.y] = Left;
-                        cola.push(nextpos); // Right
-                        visited[nextpos.x][nextpos.y] = true;
+                    nextpos.set_pos(pt.x - 1, pt.y + 1);
+                    recalcular_distancia(nextpos);
+                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                            p[nextpos.x][nextpos.y] = LB;
+                            cola.push(nextpos); // Top-Right
+                            visited[nextpos.x][nextpos.y] = true;
+                        }
                     }
-                }
 
-                nextpos.set_pos(pt.x - 1, pt.y + 1);
-                recalcular_distancia(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                        p[nextpos.x][nextpos.y] = TL;
-                        cola.push(nextpos); // Bottom-Right
-                        visited[nextpos.x][nextpos.y] = true;
+                    nextpos.set_pos(pt.x, pt.y + 1);
+                    recalcular_distancia(nextpos);
+                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                            p[nextpos.x][nextpos.y] = Left;
+                            cola.push(nextpos); // Right
+                            visited[nextpos.x][nextpos.y] = true;
+                        }
                     }
-                }
 
-                nextpos.set_pos(pt.x + 1, pt.y);
-                recalcular_distancia(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                        p[nextpos.x][nextpos.y] = Top;
-                        cola.push(nextpos); // Bottom
-                        visited[nextpos.x][nextpos.y] = true;
+                    nextpos.set_pos(pt.x - 1, pt.y + 1);
+                    recalcular_distancia(nextpos);
+                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                            p[nextpos.x][nextpos.y] = TL;
+                            cola.push(nextpos); // Bottom-Right
+                            visited[nextpos.x][nextpos.y] = true;
+                        }
                     }
-                }
 
-                nextpos.set_pos(pt.x + 1, pt.y - 1);
-                recalcular_distancia(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                        p[nextpos.x][nextpos.y] = RT;
-                        cola.push(nextpos); // Bottom-Left 
-                        visited[nextpos.x][nextpos.y] = true;
+                    nextpos.set_pos(pt.x + 1, pt.y);
+                    recalcular_distancia(nextpos);
+                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                            p[nextpos.x][nextpos.y] = Top;
+                            cola.push(nextpos); // Bottom
+                            visited[nextpos.x][nextpos.y] = true;
+                        }
                     }
-                }
 
-                nextpos.set_pos(pt.x, pt.y - 1);
-                recalcular_distancia(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                        p[nextpos.x][nextpos.y] = Right;
-                        cola.push(nextpos); // Left
-                        visited[nextpos.x][nextpos.y] = true;
+                    nextpos.set_pos(pt.x + 1, pt.y - 1);
+                    recalcular_distancia(nextpos);
+                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                            p[nextpos.x][nextpos.y] = RT;
+                            cola.push(nextpos); // Bottom-Left 
+                            visited[nextpos.x][nextpos.y] = true;
+                        }
                     }
-                }
-                
-                nextpos.set_pos(pt.x - 1, pt.y - 1);
-                recalcular_distancia(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                        p[nextpos.x][nextpos.y] = BR;
-                        cola.push(nextpos); // Top-Left
-                        visited[nextpos.x][nextpos.y] = true;
+
+                    nextpos.set_pos(pt.x, pt.y - 1);
+                    recalcular_distancia(nextpos);
+                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                            p[nextpos.x][nextpos.y] = Right;
+                            cola.push(nextpos); // Left
+                            visited[nextpos.x][nextpos.y] = true;
+                        }
+                    }
+                    
+                    nextpos.set_pos(pt.x - 1, pt.y - 1);
+                    recalcular_distancia(nextpos);
+                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                            p[nextpos.x][nextpos.y] = BR;
+                            cola.push(nextpos); // Top-Left
+                            visited[nextpos.x][nextpos.y] = true;
+                        }
                     }
                 }
 
             }
-
-            /*for (int i = 0; i < int(G[u].size()); ++i) { //Para todos los nodos vecinos
-                int v = G[u][i].second; //v = nodo vecino
-                int c = G[u][i].first; //c = distancia del nodo
-                if (d[v] > d[u] + c) {  //si la distancia al nodo vecino es más grande que
-                                        //la distancia al nodo actual más la verdadera distancia al nodo vecino
-                    d[v] = d[u] + c;
-                    p[v] = u;           //previo al nodo v es u
-                    Q.push(ArcP(d[v], v));
-                }
-            }*/
 
         }
     }
@@ -811,18 +766,6 @@ struct PLAYER_NAME : public Player {
         if (round() == 1) init();
         else {
             update();
-            for (Unidad u : my_units) {
-                command(u.id, u.next());
-            }
-            /*for (int i : my_dwarves) {
-                if (en_peligro(unit(i).pos)) {
-                    command(i, Dir(random(0, LB)));
-                }
-                else if (pos_ok(unit(i).pos + Top) and (cell(unit(i).pos + Top).type == Cave or cell(unit(i).pos + Top).type == Rock))
-                    command(i, Top);
-                else
-                    command(i, Dir(random(0, LB)));
-            }*/
         }
     }
 
