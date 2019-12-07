@@ -43,7 +43,7 @@ struct PLAYER_NAME : public Player {
         }
 
         Dir next() {
-            if (path.empty()) return Top;
+            if (path.empty()) return rand();
             Dir next = path.top();
             path.pop();
             return next;
@@ -112,6 +112,9 @@ struct PLAYER_NAME : public Player {
         else if (new_coord.cell.type == Rock) {
             new_coord.d += new_coord.cell.turns;
         }
+        else if ((new_coord.cell.id != -1) and (unit(new_coord.cell.id).player != my_id)) {
+            new_coord.d = INFINIT;
+        }
         return new_coord;
     }
 
@@ -147,6 +150,9 @@ struct PLAYER_NAME : public Player {
         else if (pt.cell.type == Rock) {
             pt.d += pt.cell.turns;
         }
+        else if ((pt.cell.id != -1) and (unit(pt.cell.id).player != my_id)) {
+            pt.d = INFINIT;
+        }
     }
 
     static int distancia(const Pos& p1, const Pos& p2) {
@@ -158,7 +164,7 @@ struct PLAYER_NAME : public Player {
     }
 
     bool en_peligro(const Pos &pt) {
-        return distancia_cuadrada(boss.pos, pt) < distancia_seguridad;
+        return false;//distancia_cuadrada(boss.pos, pt) < distancia_seguridad;
     }
 
     static Dir calcular_direccion(const Pos& origen, const Pos& destino) {
@@ -182,20 +188,25 @@ struct PLAYER_NAME : public Player {
         }
     }
 
+    static Dir rand() {
+        Random_generator g;
+        return Dir(g.random(Bottom, LB));
+    }
+
     vector<Unidad> crear_unidades() {
         vector<Unidad> v;
         for (int id : my_dwarves) {
             Unidad u(id);
             u.unit = unit(id);
             u.comprueba_atacada();
-            camino_a_tesoro(u);
+            camino_a_lo_mas_cerca(u);
             v.push_back(u);
         }
         for (int id : my_wizards) {
             Unidad u(id);
             u.unit = unit(id);
             u.comprueba_atacada();
-            //camino_a_tesoro(u);
+            camino_al_danado(u);
             v.push_back(u);
         }
         return v;
@@ -204,13 +215,23 @@ struct PLAYER_NAME : public Player {
     void actualizar_unidad(Unidad& u) {
         u.unit = unit(u.id);
         u.comprueba_atacada();
-        if (u.unit.type == Dwarf) camino_a_tesoro(u);
+        if (u.unit.type == Dwarf) camino_a_lo_mas_cerca(u);
+        else camino_al_danado(u);
     }
 
     void camino_a_tesoro(Unidad& u) {
         vector<vector<int> > d,p;
-        cout << "Unidad " << u.id << ":" << endl;
+        //cout << "Unidad " << u.id << ":" << endl;
         dijkstra(u.unit.pos.i, u.unit.pos.j, d, p, u.path, 50);
+    }
+
+    void camino_a_lo_mas_cerca(Unidad& u) {
+        vector<vector<int> > d,p;
+        dijkstra_v2(u.unit.pos.i, u.unit.pos.j, d, p, u.path, 10);
+    }
+
+    void camino_al_danado(Unidad& u) {
+        u.path = bfs_v2(u.id, 20);
     }
 
     //------------ Variables ------------//
@@ -236,6 +257,8 @@ struct PLAYER_NAME : public Player {
         num_dwarves = 20;
         num_wizards = 5;
         distancia_seguridad = 1;
+
+        my_units = crear_unidades();
 
         update();
 
@@ -409,6 +432,85 @@ struct PLAYER_NAME : public Player {
 
     }
 
+    stack<Dir> bfs_v2 (int id, int max_d) {
+        Pos origen = unit(id).pos;
+
+        int n = 59;
+        int m = 59;
+
+        vector<vector<bool> > visited(n+1, vector<bool>(m+1, false));
+        vector<vector<int> > p = vector<vector<int> >(n+1, vector<int>(m+1,-1));
+        queue<Coord> cola;
+
+        stack<Dir> path;
+
+        cola.push(nueva_coord_bfs(origen.i, origen.j, 0));
+        visited[origen.i][origen.j] = true;
+
+        while (not cola.empty())
+        {   
+            Coord pt = cola.front();
+            cola.pop();
+
+            if (pt.d > 0 and pt.cell.id != -1 and unit(pt.cell.id).player == my_id) {
+                
+                int x = pt.x;
+                int y = pt.y;
+
+                while (p[x][y] != -1) {
+                    //cout << x << " " << y << endl;
+                    Pos final(x,y);
+                    Pos origen = final + Dir(p[x][y]);
+                    x = origen.i;
+                    y = origen.j;
+                    path.push(calcular_direccion(origen, final));
+                    //cout << calcular_direccion(origen, final);
+                }
+
+                return path;
+
+            }
+
+            if (pt.d < max_d) {
+
+                Coord nextpos = nueva_coord_bfs(pt.x - 1, pt.y, pt.d + 1);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Top
+                    visited[nextpos.x][nextpos.y] = true;
+                    p[nextpos.x][nextpos.y] = Bottom;
+                }
+
+                nextpos.set_pos(pt.x, pt.y + 1);
+                recalcular_casilla(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Right
+                    visited[nextpos.x][nextpos.y] = true;
+                    p[nextpos.x][nextpos.y] = Left;
+                }
+
+                nextpos.set_pos(pt.x + 1, pt.y);
+                recalcular_casilla(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Bottom
+                    visited[nextpos.x][nextpos.y] = true;
+                    p[nextpos.x][nextpos.y] = Top;
+                }
+
+                nextpos.set_pos(pt.x, pt.y - 1);
+                recalcular_casilla(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    cola.push(nextpos); // Left
+                    visited[nextpos.x][nextpos.y] = true;
+                    p[nextpos.x][nextpos.y] = Right;
+                }
+            
+            }
+        }
+
+        return path;
+
+    }
+
     void dijkstra(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p, stack<Dir>& camino, int max_d) {
 
         int n = 60; //n = numero de filas
@@ -445,11 +547,13 @@ struct PLAYER_NAME : public Player {
                             x = origen.i;
                             y = origen.j;
                             camino.push(calcular_direccion(origen, final));
-                            cout << calcular_direccion(origen, final);
+                            //cout << calcular_direccion(origen, final);
                         }
-                        cout << endl;
+                        //cout << endl;
                     }
                 }
+
+                //-------------------------------------------------------------------------------
 
                 Coord nextpos = nueva_coord(pt.x - 1, pt.y);
                 if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
@@ -532,6 +636,151 @@ struct PLAYER_NAME : public Player {
                 if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
                     if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + pt.d)) {
                         d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + pt.d;
+                        p[nextpos.x][nextpos.y] = BR;
+                        cola.push(nextpos); // Top-Left
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+            }
+
+            /*for (int i = 0; i < int(G[u].size()); ++i) { //Para todos los nodos vecinos
+                int v = G[u][i].second; //v = nodo vecino
+                int c = G[u][i].first; //c = distancia del nodo
+                if (d[v] > d[u] + c) {  //si la distancia al nodo vecino es más grande que
+                                        //la distancia al nodo actual más la verdadera distancia al nodo vecino
+                    d[v] = d[u] + c;
+                    p[v] = u;           //previo al nodo v es u
+                    Q.push(ArcP(d[v], v));
+                }
+            }*/
+
+        }
+    }
+
+    void dijkstra_v2(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p, stack<Dir>& camino, int max_d) {
+
+        int n = 60; //n = numero de filas
+        int m = 60; //m = numero de columnas
+
+        d = vector<vector<int> >(n, vector<int> (m, INFINIT)); //d = vector de distancias
+        d[i][j] = 0; //el origen tiene distancia 0
+        p = vector<vector<int> >(n, vector<int>(m,-1)); //p = vector de nodos previos
+        vector<vector<bool> > visited(n, vector<bool>(m,false));
+        priority_queue<Coord, vector<Coord>, comp > cola;
+        cola.push(nueva_coord(i, j));
+
+        int distancia = INFINIT;
+        camino = stack<Dir>();
+
+        while (not cola.empty()) {
+            Coord pt = cola.top(); //pt = nodo actual
+            cola.pop();
+
+            if (d[pt.x][pt.y] < max_d) {
+
+                if (d[pt.x][pt.y] > 0 and pt.cell.type == Cave and (pt.cell.treasure or (pt.cell.id != -1 and unit(pt.cell.id).player != my_id))) {
+                    //cout << "Tesoro a " << d[pt.x][pt.y] << endl;
+                    if (distancia > d[pt.x][pt.y]) {
+                        camino = stack<Dir>();
+                        distancia = d[pt.x][pt.y];
+                        int x = pt.x;
+                        int y = pt.y;
+
+                        while (p[x][y] != -1) {
+                            //cout << x << " " << y << endl;
+                            Pos final(x,y);
+                            Pos origen = final + Dir(p[x][y]);
+                            x = origen.i;
+                            y = origen.j;
+                            camino.push(calcular_direccion(origen, final));
+                            //cout << calcular_direccion(origen, final);
+                        }
+                        //cout << endl;
+                    }
+                }
+
+                Coord nextpos = nueva_coord(pt.x - 1, pt.y);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = Bottom;
+                        cola.push(nextpos); // Top
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x - 1, pt.y + 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = LB;
+                        cola.push(nextpos); // Top-Right
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x, pt.y + 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = Left;
+                        cola.push(nextpos); // Right
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x - 1, pt.y + 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = TL;
+                        cola.push(nextpos); // Bottom-Right
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x + 1, pt.y);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = Top;
+                        cola.push(nextpos); // Bottom
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x + 1, pt.y - 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = RT;
+                        cola.push(nextpos); // Bottom-Left 
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+
+                nextpos.set_pos(pt.x, pt.y - 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = Right;
+                        cola.push(nextpos); // Left
+                        visited[nextpos.x][nextpos.y] = true;
+                    }
+                }
+                
+                nextpos.set_pos(pt.x - 1, pt.y - 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
                         p[nextpos.x][nextpos.y] = BR;
                         cola.push(nextpos); // Top-Left
                         visited[nextpos.x][nextpos.y] = true;
