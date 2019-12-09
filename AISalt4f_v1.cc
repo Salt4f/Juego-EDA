@@ -123,9 +123,10 @@ struct PLAYER_NAME : public Player {
     }
 
     bool caminable2(const Coord& pt) {
-        return pt.cell.type == Cave
+        return (pt.cell.type == Cave
             or pt.cell.type == Outside
-            or pt.cell.type == Rock;
+            or pt.cell.type == Rock)
+            and not (pt.cell.id != -1 and unit(pt.cell.id).player != my_id);
     }
 
     void recalcular_casilla(Coord& pt) {
@@ -138,14 +139,8 @@ struct PLAYER_NAME : public Player {
         Pos pos(pt.x, pt.y);
         if (en_peligro(pos))
             pt.d = INFINIT;
-        else if (pt.cell.type == Abyss or pt.cell.type == Granite) {
-            pt.d = INFINIT;
-        }
         else if (pt.cell.type == Rock) {
             pt.d += pt.cell.turns;
-        }
-        else if ((pt.cell.id != -1) and (unit(pt.cell.id).player != my_id)) {
-            pt.d = INFINIT;
         }
     }
 
@@ -193,7 +188,7 @@ struct PLAYER_NAME : public Player {
             Unidad u(id);
             u.unit = unit(id);
             u.comprueba_atacada();
-            camino_a_lo_mas_cerca(u);
+            camino_a_tesoro(u);
             v.push_back(u);
         }
         for (int id : my_wizards) {
@@ -208,7 +203,7 @@ struct PLAYER_NAME : public Player {
     void actualizar_unidad(Unidad& u) {
         u.unit = unit(u.id);
         u.comprueba_atacada();
-        if (u.unit.type == Dwarf) camino_a_lo_mas_cerca(u);
+        if (u.unit.type == Dwarf) camino_a_tesoro(u);
         else camino_al_danado(u);
     }
 
@@ -219,9 +214,7 @@ struct PLAYER_NAME : public Player {
     }
 
     void camino_a_lo_mas_cerca(Unidad& u) {
-        if (round() < 25) u.path = bfs_v3(u.id, 30);
-        else if (round() < 120) u.path = bfs_v4(u.id, 30);
-        else u.path = bfs_v3(u.id, 30);
+        dijkstra_v2(u.unit.pos.i, u.unit.pos.j, u.path, 30);
     }
 
     void camino_al_danado(Unidad& u) {
@@ -241,6 +234,7 @@ struct PLAYER_NAME : public Player {
     bool dead;                  //Cierto si hemos perdido unidades
     bool newones;               //Cierto si hemos conseguido nuevas unidades
     int distancia_seguridad;    //Distancia de seguridad respecto al Balrog
+    bool inicio = true;         //Primera ronda
 
     //------------ Funciones ------------//
 
@@ -572,117 +566,6 @@ struct PLAYER_NAME : public Player {
 
     }
 
-    stack<Dir> bfs_v4 (int id, int max_d) {
-        Pos origen = unit(id).pos;
-
-        int n = 59;
-        int m = 59;
-
-        vector<vector<bool> > visited(n+1, vector<bool>(m+1, false));
-        vector<vector<int> > p = vector<vector<int> >(n+1, vector<int>(m+1,-1));
-        queue<Coord> cola;
-
-        stack<Dir> path;
-
-        cola.push(nueva_coord_bfs(origen.i, origen.j, 0));
-        visited[origen.i][origen.j] = true;
-
-        while (not cola.empty())
-        {   
-            Coord pt = cola.front();
-            cola.pop();
-
-            if (pt.d > 0 and pt.cell.treasure) {
-                
-                int x = pt.x;
-                int y = pt.y;
-
-                while (p[x][y] != -1) {
-                    //cout << x << " " << y << endl;
-                    Pos final(x,y);
-                    Pos origen = final + Dir(p[x][y]);
-                    x = origen.i;
-                    y = origen.j;
-                    path.push(calcular_direccion(origen, final));
-                    //cout << calcular_direccion(origen, final);
-                }
-
-                return path;
-
-            }
-
-            if (pt.d < max_d) {
-
-                Coord nextpos = nueva_coord_bfs(pt.x - 1, pt.y, pt.d + 1);
-                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
-                    cola.push(nextpos); // Top
-                    visited[nextpos.x][nextpos.y] = true;
-                    p[nextpos.x][nextpos.y] = Bottom;
-                }
-
-                nextpos.set_pos(pt.x - 1, pt.y + 1);
-                recalcular_casilla(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
-                    cola.push(nextpos); // Top-Right
-                    visited[nextpos.x][nextpos.y] = true;
-                    p[nextpos.x][nextpos.y] = LB;
-                }
-
-                nextpos.set_pos(pt.x, pt.y + 1);
-                recalcular_casilla(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
-                    cola.push(nextpos); // Right
-                    visited[nextpos.x][nextpos.y] = true;
-                    p[nextpos.x][nextpos.y] = Left;
-                }
-
-                nextpos.set_pos(pt.x + 1, pt.y + 1);
-                recalcular_casilla(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
-                    cola.push(nextpos); // Right-Bottom
-                    visited[nextpos.x][nextpos.y] = true;
-                    p[nextpos.x][nextpos.y] = TL;
-                }
-
-                nextpos.set_pos(pt.x + 1, pt.y);
-                recalcular_casilla(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
-                    cola.push(nextpos); // Bottom
-                    visited[nextpos.x][nextpos.y] = true;
-                    p[nextpos.x][nextpos.y] = Top;
-                }
-                
-                nextpos.set_pos(pt.x + 1, pt.y - 1);
-                recalcular_casilla(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
-                    cola.push(nextpos); // Bottom-Left
-                    visited[nextpos.x][nextpos.y] = true;
-                    p[nextpos.x][nextpos.y] = RT;
-                }
-
-                nextpos.set_pos(pt.x, pt.y - 1);
-                recalcular_casilla(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
-                    cola.push(nextpos); // Left
-                    visited[nextpos.x][nextpos.y] = true;
-                    p[nextpos.x][nextpos.y] = Right;
-                }
-
-                nextpos.set_pos(pt.x - 1, pt.y - 1);
-                recalcular_casilla(nextpos);
-                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
-                    cola.push(nextpos); // Top-Left
-                    visited[nextpos.x][nextpos.y] = true;
-                    p[nextpos.x][nextpos.y] = BR;
-                }
-            
-            }
-        }
-
-        return path;
-
-    }
-
     void dijkstra(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p, stack<Dir>& camino, int max_d) {
 
         int n = 60; //n = numero de filas
@@ -759,7 +642,7 @@ struct PLAYER_NAME : public Player {
                     }
                 }
 
-                nextpos.set_pos(pt.x - 1, pt.y + 1);
+                nextpos.set_pos(pt.x + 1, pt.y + 1);
                 recalcular_distancia(nextpos);
                 if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
                     if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + pt.d)) {
@@ -830,19 +713,17 @@ struct PLAYER_NAME : public Player {
         }
     }
 
-    void dijkstra_v2(int i, int j, vector<vector<int> >& d, vector<vector<int> >& p, stack<Dir>& camino, int max_d) {
+    void dijkstra_v2(int i, int j, stack<Dir>& camino, int max_d) {
 
         int n = 60; //n = numero de filas
         int m = 60; //m = numero de columnas
 
-        d = vector<vector<int> >(n, vector<int> (m, INFINIT)); //d = vector de distancias
+        vector<vector<int> > d(n, vector<int> (m, INFINIT)); //d = vector de distancias
         d[i][j] = 0; //el origen tiene distancia 0
-        p = vector<vector<int> >(n, vector<int>(m,-1)); //p = vector de nodos previos
+        vector<vector<int> > p(n, vector<int>(m,-1)); //p = vector de nodos previos
         vector<vector<bool> > visited(n, vector<bool>(m,false));
         priority_queue<Coord, vector<Coord>, comp > cola;
-        cola.push(nueva_coord(i, j));
-
-        bool encontrado = false;
+        cola.push(nueva_coord_bfs(i, j, 0));
 
         int distancia = INFINIT;
         camino = stack<Dir>();
@@ -851,12 +732,10 @@ struct PLAYER_NAME : public Player {
             Coord pt = cola.top(); //pt = nodo actual
             cola.pop();
 
-            encontrado = false;
-
             if (d[pt.x][pt.y] < max_d) {
 
-                if (d[pt.x][pt.y] > 0 and pt.cell.type == Cave and (pt.cell.treasure or (pt.cell.id != -1 and unit(pt.cell.id).player != my_id))) {
-                    //cout << "Tesoro a " << d[pt.x][pt.y] << endl;
+                if (d[pt.x][pt.y] > 0 and (pt.cell.treasure or (pt.cell.id != -1 and unit(pt.cell.id).player != my_id))) {
+
                     if (distancia > d[pt.x][pt.y]) {
                         camino = stack<Dir>();
                         distancia = d[pt.x][pt.y];
@@ -864,107 +743,100 @@ struct PLAYER_NAME : public Player {
                         int y = pt.y;
 
                         while (p[x][y] != -1) {
-                            //cout << x << " " << y << endl;
                             Pos final(x,y);
                             Pos origen = final + Dir(p[x][y]);
                             x = origen.i;
                             y = origen.j;
                             camino.push(calcular_direccion(origen, final));
-                            //cout << calcular_direccion(origen, final);
                         }
-                        //cout << endl;
 
-                        encontrado = true;
                     }
                 }
 
-                if (not encontrado) {
-
-                    Coord nextpos = nueva_coord(pt.x - 1, pt.y);
-                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                            p[nextpos.x][nextpos.y] = Bottom;
-                            cola.push(nextpos); // Top
-                            visited[nextpos.x][nextpos.y] = true;
-                        }
+                Coord nextpos = nueva_coord(pt.x - 1, pt.y);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = Bottom;
+                        cola.push(nextpos); // Top
+                        visited[nextpos.x][nextpos.y] = true;
                     }
+                }
 
-                    nextpos.set_pos(pt.x - 1, pt.y + 1);
-                    recalcular_distancia(nextpos);
-                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                            p[nextpos.x][nextpos.y] = LB;
-                            cola.push(nextpos); // Top-Right
-                            visited[nextpos.x][nextpos.y] = true;
-                        }
+                nextpos.set_pos(pt.x - 1, pt.y + 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = LB;
+                        cola.push(nextpos); // Top-Right
+                        visited[nextpos.x][nextpos.y] = true;
                     }
+                }
 
-                    nextpos.set_pos(pt.x, pt.y + 1);
-                    recalcular_distancia(nextpos);
-                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                            p[nextpos.x][nextpos.y] = Left;
-                            cola.push(nextpos); // Right
-                            visited[nextpos.x][nextpos.y] = true;
-                        }
+                nextpos.set_pos(pt.x, pt.y + 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = Left;
+                        cola.push(nextpos); // Right
+                        visited[nextpos.x][nextpos.y] = true;
                     }
+                }
 
-                    nextpos.set_pos(pt.x - 1, pt.y + 1);
-                    recalcular_distancia(nextpos);
-                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                            p[nextpos.x][nextpos.y] = TL;
-                            cola.push(nextpos); // Bottom-Right
-                            visited[nextpos.x][nextpos.y] = true;
-                        }
+                nextpos.set_pos(pt.x + 1, pt.y + 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = TL;
+                        cola.push(nextpos); // Bottom-Right
+                        visited[nextpos.x][nextpos.y] = true;
                     }
+                }
 
-                    nextpos.set_pos(pt.x + 1, pt.y);
-                    recalcular_distancia(nextpos);
-                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                            p[nextpos.x][nextpos.y] = Top;
-                            cola.push(nextpos); // Bottom
-                            visited[nextpos.x][nextpos.y] = true;
-                        }
+                nextpos.set_pos(pt.x + 1, pt.y);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = Top;
+                        cola.push(nextpos); // Bottom
+                        visited[nextpos.x][nextpos.y] = true;
                     }
+                }
 
-                    nextpos.set_pos(pt.x + 1, pt.y - 1);
-                    recalcular_distancia(nextpos);
-                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                            p[nextpos.x][nextpos.y] = RT;
-                            cola.push(nextpos); // Bottom-Left 
-                            visited[nextpos.x][nextpos.y] = true;
-                        }
+                nextpos.set_pos(pt.x + 1, pt.y - 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = RT;
+                        cola.push(nextpos); // Bottom-Left 
+                        visited[nextpos.x][nextpos.y] = true;
                     }
+                }
 
-                    nextpos.set_pos(pt.x, pt.y - 1);
-                    recalcular_distancia(nextpos);
-                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                            p[nextpos.x][nextpos.y] = Right;
-                            cola.push(nextpos); // Left
-                            visited[nextpos.x][nextpos.y] = true;
-                        }
+                nextpos.set_pos(pt.x, pt.y - 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = Right;
+                        cola.push(nextpos); // Left
+                        visited[nextpos.x][nextpos.y] = true;
                     }
-                    
-                    nextpos.set_pos(pt.x - 1, pt.y - 1);
-                    recalcular_distancia(nextpos);
-                    if (pos_ok(nextpos.x, nextpos.y) and not visited[nextpos.x][nextpos.y]) {
-                        if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
-                            d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
-                            p[nextpos.x][nextpos.y] = BR;
-                            cola.push(nextpos); // Top-Left
-                            visited[nextpos.x][nextpos.y] = true;
-                        }
+                }
+                
+                nextpos.set_pos(pt.x - 1, pt.y - 1);
+                recalcular_distancia(nextpos);
+                if (pos_ok(nextpos.x, nextpos.y) and caminable2(nextpos) and not visited[nextpos.x][nextpos.y]) {
+                    if (d[nextpos.x][nextpos.y] > (d[pt.x][pt.y] + nextpos.d)) {
+                        d[nextpos.x][nextpos.y] = d[pt.x][pt.y] + nextpos.d;
+                        p[nextpos.x][nextpos.y] = BR;
+                        cola.push(nextpos); // Top-Left
+                        visited[nextpos.x][nextpos.y] = true;
                     }
                 }
 
@@ -990,7 +862,10 @@ struct PLAYER_NAME : public Player {
      */
     virtual void play () {
         //cout << round() << endl;
-        if (round() == 1) init();
+        if (inicio) {
+            init();
+            inicio = false;
+        }
         else {
             update(false);
         }
