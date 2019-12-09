@@ -123,9 +123,10 @@ struct PLAYER_NAME : public Player {
     }
 
     bool caminable2(const Coord& pt) {
-        return pt.cell.type == Cave
+        return (pt.cell.type == Cave
             or pt.cell.type == Outside
-            or pt.cell.type == Rock;
+            or pt.cell.type == Rock)
+            and not (pt.cell.id != -1 and (unit(pt.cell.id).player == my_id));
     }
 
     void recalcular_casilla(Coord& pt) {
